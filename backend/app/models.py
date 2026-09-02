@@ -1,20 +1,25 @@
-from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column
+from functools import lru_cache
 
-from .database import Base
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class User(Base):
-    __tablename__ = "users"
+class Settings(BaseSettings):
+    database_url: str
 
-    id: Mapped[int] = mapped_column(
-        primary_key=True,
-        index=True
+    jwt_secret_key: str
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
     )
 
-    email: Mapped[str] = mapped_column(
-        String(255),
-        unique=True,
-        nullable=False,
-        index=True
-    )
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
+
+
+settings = get_settings()
