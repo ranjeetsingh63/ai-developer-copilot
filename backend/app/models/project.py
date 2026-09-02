@@ -1,28 +1,27 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..database import Base
 
 
-class User(Base):
-    __tablename__ = "users"
+class Project(Base):
+    __tablename__ = "projects"
 
     id: Mapped[int] = mapped_column(
         primary_key=True,
     )
 
-    email: Mapped[str] = mapped_column(
+    name: Mapped[str] = mapped_column(
         String(255),
-        unique=True,
-        index=True,
         nullable=False,
     )
 
-    password_hash: Mapped[str] = mapped_column(
-        String(255),
+    owner_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(
@@ -31,7 +30,6 @@ class User(Base):
         nullable=False,
     )
 
-    projects: Mapped[list["Project"]] = relationship(
-        back_populates="owner",
-        cascade="all, delete-orphan",
+    owner: Mapped["User"] = relationship(
+        back_populates="projects",
     )
