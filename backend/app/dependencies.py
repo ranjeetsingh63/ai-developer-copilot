@@ -1,12 +1,12 @@
-import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .config import settings
 from .database import get_db
 from .models.user import User
+from .services.auth import decode_token
+import jwt
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
@@ -22,11 +22,9 @@ def get_current_user(
     )
 
     try:
-        payload = jwt.decode(
-            token,
-            settings.jwt_secret_key,
-            algorithms=[settings.jwt_algorithm],
-        )
+        payload = decode_token(token)
+        if payload.get("type") == "refresh":
+            raise credentials_exception
         user_id = payload.get("sub")
         if user_id is None:
             raise credentials_exception

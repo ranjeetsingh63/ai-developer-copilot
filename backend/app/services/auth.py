@@ -29,3 +29,29 @@ def create_access_token(user_id: int) -> str:
         settings.jwt_secret_key,
         algorithm=settings.jwt_algorithm
     )
+
+
+def create_refresh_token(user_id: int) -> str:
+    expires_at = datetime.now(timezone.utc) + timedelta(
+        days=settings.refresh_token_expire_days
+    )
+
+    payload = {
+        "sub": str(user_id),
+        "exp": expires_at,
+        "type": "refresh",
+    }
+
+    return jwt.encode(
+        payload,
+        settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm,
+    )
+
+
+def decode_token(token: str) -> dict:
+    return jwt.decode(
+        token,
+        settings.jwt_secret_key,
+        algorithms=[settings.jwt_algorithm],
+    )

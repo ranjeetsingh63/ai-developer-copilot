@@ -1,3 +1,4 @@
+import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -5,6 +6,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models.user import User
 from ..schemas.auth import (
+    RefreshRequest,
     TokenResponse,
     UserLogin,
     UserRegister,
@@ -12,6 +14,8 @@ from ..schemas.auth import (
 )
 from ..services.auth import (
     create_access_token,
+    create_refresh_token,
+    decode_token,
     hash_password,
     verify_password,
 )
@@ -76,9 +80,45 @@ def login_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token = create_access_token(user.id)
+    return TokenResponse(
+        access_token=create_access_token(user.id),
+        refresh_token=create_refresh_token(user.id),
+        token_type="bearer",
+    )
+
+
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+)
+def refresh_access_token(
+    refresh_data: RefreshRequest,
+    db: Session = Depends(get_db),
+) -> TokenResponse:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired refresh token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    try:
+        payload = decode_token(refresh_data.refresh_token)
+    except jwt.PyJWTError:
+        raise credentials_exception
+
+    if payload.get("type") != "refresh":
+        raise credentials_exception
+
+    user_id = payload.get("sub")
+    if user_id is None:
+        raise credentials_exception
+
+    user = db.scalar(select(User).where(User.id == int(user_id)))
+    if user is None:
+        raise credentials_exception
 
     return TokenResponse(
-        access_token=access_token,
+        access_token=create_access_token(user.id),
+        refresh_token=create_refresh_token(user.id),
         token_type="bearer",
     )
