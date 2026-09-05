@@ -4,8 +4,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+
 from backend.app.database import Base, get_db
 from backend.app.main import app
+from backend.app.rate_limit import limiter
 
 
 @pytest.fixture()
@@ -40,3 +42,12 @@ def client(db_session):
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    limiter.reset()
+    yield
+    limiter.reset()

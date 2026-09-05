@@ -139,3 +139,17 @@ def test_refresh_token_rejected_at_protected_route(client):
     )
 
     assert response.status_code == 401
+
+def test_login_rate_limited_after_five_attempts(client):
+    for _ in range(5):
+        client.post(
+            "/auth/login",
+            json={"email": "dave@example.com", "password": "wrongpassword"},
+        )
+
+    response = client.post(
+        "/auth/login",
+        json={"email": "dave@example.com", "password": "wrongpassword"},
+    )
+
+    assert response.status_code == 429

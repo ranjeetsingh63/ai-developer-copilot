@@ -1,9 +1,10 @@
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..rate_limit import limiter
 from ..models.user import User
 from ..schemas.auth import (
     RefreshRequest,
@@ -32,7 +33,9 @@ router = APIRouter(
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
 )
+@limiter.limit("5/minute")
 def register_user(
+    request: Request,
     user_data: UserRegister,
     db: Session = Depends(get_db),
 ) -> UserResponse:
@@ -62,7 +65,9 @@ def register_user(
     "/login",
     response_model=TokenResponse,
 )
+@limiter.limit("5/minute")
 def login_user(
+    request: Request,
     user_data: UserLogin,
     db: Session = Depends(get_db),
 ) -> TokenResponse:
