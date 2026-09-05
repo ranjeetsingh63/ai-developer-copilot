@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 
 from .rate_limit import limiter
+from .routers.repositories import router as repositories_router
 from .routers.auth import router as auth_router
 from .routers.users import router as users_router
 from .routers.projects import router as projects_router
@@ -145,6 +146,7 @@ app.add_middleware(
 app.include_router(users_router)
 app.include_router(auth_router)
 app.include_router(projects_router)
+app.include_router(repositories_router)
 
 
 @app.get("/")
