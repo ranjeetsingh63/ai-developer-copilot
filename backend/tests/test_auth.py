@@ -153,3 +153,26 @@ def test_login_rate_limited_after_five_attempts(client):
     )
 
     assert response.status_code == 429
+
+def test_error_response_has_consistent_shape(client):
+    response = client.post(
+        "/auth/login",
+        json={"email": "ghost@example.com", "password": "whatever123"},
+    )
+
+    assert response.status_code == 401
+    data = response.json()
+    assert "error" in data
+    assert data["error"]["code"] == "unauthorized"
+    assert data["error"]["message"] == "Invalid email or password"
+
+
+def test_validation_error_has_consistent_shape(client):
+    response = client.post(
+        "/auth/register",
+        json={"email": "test@example.com"},
+    )
+
+    assert response.status_code == 422
+    data = response.json()
+    assert data["error"]["code"] == "validation_error"

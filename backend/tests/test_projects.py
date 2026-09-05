@@ -85,3 +85,13 @@ def test_get_nonexistent_project_returns_404(client):
     response = client.get("/projects/9999", headers=auth_headers(token))
 
     assert response.status_code == 404
+
+def test_not_found_error_has_consistent_shape(client):
+    token = register_and_login(client, "alice@example.com", "strongpassword123")
+
+    response = client.get("/projects/9999", headers=auth_headers(token))
+
+    assert response.status_code == 404
+    data = response.json()
+    assert data["error"]["code"] == "not_found"
+    assert data["error"]["message"] == "Project not found"
