@@ -10,6 +10,8 @@ from ..models.repository import Repository
 from ..schemas.repository import RepositoryCreate, RepositoryResponse
 from ..schemas.pagination import PaginatedResponse
 from ..dependencies import get_current_user
+from ..services.github import GitHubService
+from ..config import settings
 
 router = APIRouter(
     prefix="/projects/{project_id}/repositories",
@@ -28,21 +30,31 @@ def verify_project_ownership(db: Session, project_id: int, current_user_id: int)
 
 
 @router.post("/", response_model=RepositoryResponse, status_code=status.HTTP_201_CREATED)
-def create_repository(
+async def create_repository(
         project_id: int,
         repo_in: RepositoryCreate,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ) -> Any:
-    # 1. Enforce ownership
+    # 1. Enforce ownership boundaries
     verify_project_ownership(db, project_id, current_user.id)
 
-    # 2. Create the repository
+    # 2. Verify repository existence via GitHub API
+    github_svc = GitHubService(settings.github_pat)
+    try:
+        repo_data = await github_svc.verify_repository(repo_in.github_url)
+    finally:
+        await github_svc.close()
+
+    # Optional: override or enrich default branch with what GitHub actually reports
+    verified_branch = repo_data.get("default_branch", repo_in.default_branch)
+
+    # 3. Create the repository in the database
     new_repo = Repository(
         project_id=project_id,
         github_url=repo_in.github_url,
         name=repo_in.name,
-        default_branch=repo_in.default_branch
+        default_branch=verified_branch
     )
     db.add(new_repo)
     db.commit()

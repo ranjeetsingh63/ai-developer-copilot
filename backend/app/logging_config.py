@@ -1,32 +1,25 @@
 import logging
 import sys
-from pythonjsonlogger import jsonlogger
+
+from pythonjsonlogger.json import JsonFormatter
 
 
-def setup_logging() -> None:
-    """Configures structured JSON logging for the application."""
-    logger = logging.getLogger()
-
-    # Clear existing handlers to prevent duplicate logs (useful during hot-reloads)
-    if logger.hasHandlers():
-        logger.handlers.clear()
-
-    logger.setLevel(logging.INFO)
-
-    # Output logs to standard output (which Docker captures perfectly)
-    log_handler = logging.StreamHandler(sys.stdout)
-
-    # Define the structure of our JSON logs
-    formatter = jsonlogger.JsonFormatter(
-        fmt="%(asctime)s %(levelname)s %(name)s %(message)s",
-        rename_fields={
-            "levelname": "level",
-            "asctime": "timestamp"
-        }
+def configure_logging() -> None:
+    formatter = JsonFormatter(
+        "{levelname}{asctime}{name}{message}",
+        style="{",
+        rename_fields={"levelname": "level", "asctime": "timestamp", "name": "logger"},
     )
 
-    log_handler.setFormatter(formatter)
-    logger.addHandler(log_handler)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(formatter)
 
-    # Suppress default Uvicorn access logs since we will handle request logging via middleware
-    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    root_logger = logging.getLogger()
+    root_logger.handlers = [handler]
+    root_logger.setLevel(logging.INFO)
+
+    # Route Uvicorn's own loggers through the same JSON formatter
+    for uvicorn_logger_name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        uvicorn_logger = logging.getLogger(uvicorn_logger_name)
+        uvicorn_logger.handlers = [handler]
+        uvicorn_logger.propagate = False
