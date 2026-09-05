@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..dependencies import get_current_user
 from ..models import Project, User
+from ..schemas.pagination import PaginatedResponse
 from ..schemas.project import ProjectCreate, ProjectResponse
 
 
@@ -38,17 +39,29 @@ def create_project(
 
 @router.get(
     "/",
-    response_model=list[ProjectResponse],
+    response_model=PaginatedResponse[ProjectResponse],
 )
 def list_projects(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> list[ProjectResponse]:
+) -> PaginatedResponse[ProjectResponse]:
+    total = db.scalar(
+        select(func.count())
+        .select_from(Project)
+        .where(Project.owner_id == current_user.id)
+    )
+
     projects = db.scalars(
-        select(Project).where(Project.owner_id == current_user.id)
+        select(Project)
+        .where(Project.owner_id == current_user.id)
+        .order_by(Project.id)
+        .limit(limit)
+        .offset(offset)
     ).all()
 
-    return projects
+    return PaginatedResponse(items=projects, total=total, limit=limit, offset=offset)
 
 
 @router.get(

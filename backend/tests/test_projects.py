@@ -46,10 +46,10 @@ def test_create_and_list_project(client):
 
     list_response = client.get("/projects/", headers=auth_headers(token))
     assert list_response.status_code == 200
-    projects = list_response.json()
-    assert len(projects) == 1
-    assert projects[0]["id"] == project["id"]
-
+    data = list_response.json()
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+    assert data["items"][0]["id"] == project["id"]
 
 def test_user_cannot_access_another_users_project(client):
     token_a = register_and_login(client, "alice@example.com", "strongpassword123")
@@ -76,7 +76,9 @@ def test_user_project_list_is_isolated(client):
     response = client.get("/projects/", headers=auth_headers(token_b))
 
     assert response.status_code == 200
-    assert response.json() == []
+    data = response.json()
+    assert data["total"] == 0
+    assert data["items"] == []
 
 
 def test_get_nonexistent_project_returns_404(client):
@@ -95,3 +97,24 @@ def test_not_found_error_has_consistent_shape(client):
     data = response.json()
     assert data["error"]["code"] == "not_found"
     assert data["error"]["message"] == "Project not found"
+
+def test_project_pagination_limit_and_offset(client):
+    token = register_and_login(client, "alice@example.com", "strongpassword123")
+
+    for i in range(5):
+        client.post(
+            "/projects/",
+            json={"name": f"Project {i}"},
+            headers=auth_headers(token),
+        )
+
+    response = client.get("/projects/?limit=2&offset=1", headers=auth_headers(token))
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 5
+    assert len(data["items"]) == 2
+    assert data["limit"] == 2
+    assert data["offset"] == 1
+    assert data["items"][0]["name"] == "Project 1"
+    assert data["items"][1]["name"] == "Project 2"
